@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="Diffbench — a fully client-side diff checker for text and images. No uploads, no backend, no telemetry.">
+  <!-- Strict CSP: everything ships from this origin; blob: URLs are only used
+       as image sources and download targets, never as scripts. -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; child-src 'self'; object-src 'self' blob:; base-uri 'none'; form-action 'none'">
+  <title>~/ Diffbench — client-side diff checker</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <script src="./src/theme/init.js"></script>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./src/main.js"></script>
+</head>
+<body>
+  <noscript>
+    <div class="noscript">Diffbench is a fully client-side tool and needs JavaScript to run. No data ever leaves your browser.</div>
+  </noscript>
+
+  <div class="app" id="app">
+    <div class="drawer-backdrop" id="drawerBackdrop" aria-hidden="true"></div>
+    <header class="topbar">
+      <a class="brand" href="./"><span class="faint">~/ </span>Diffbench</a>
+
+      <button type="button" class="iconbtn" id="queueBtn" aria-label="Open queue" title="Queue" hidden>
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 3h10M3 8h10M3 13h10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      </button>
+
+      <div class="seg" id="modeSeg" role="group" aria-label="Mode">
+        <button type="button" class="seg-item is-active" data-mode="text" aria-pressed="true">Text</button>
+        <button type="button" class="seg-item" data-mode="image" aria-pressed="false">Image</button>
+      </div>
+
+      <div class="filepair mono" id="filepair" aria-label="Current file pair">
+        <span class="fp-a" id="fpA">buffer</span><span class="faint">&nbsp;⇄&nbsp;</span><span class="fp-b" id="fpB">buffer</span>
+      </div>
+
+      <button type="button" class="iconbtn" id="settingsTopBtn" aria-label="Open settings" title="Settings" hidden>
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="2.2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.3v2M8 12.7v2M1.3 8h2M12.7 8h2M3.3 3.3l1.4 1.4M11.3 11.3l1.4 1.4M12.7 3.3l-1.4 1.4M4.7 11.3l-1.4 1.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      </button>
+
+      <button type="button" class="iconbtn theme-btn" id="themeBtn" aria-label="Toggle color theme" title="Toggle theme">
+        <svg class="ic-sun" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><circle cx="8" cy="8" r="3.4" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 .8v1.6M8 13.6v1.6M.8 8h1.6M13.6 8h1.6M2.9 2.9l1.1 1.1M12 12l1.1 1.1M13.1 2.9L12 4M4 12l-1.1 1.1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        <svg class="ic-sunrays" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><circle cx="8" cy="8" r="2.8" fill="currentColor"/><path d="M8 0v2.4M8 13.6V16M0 8h2.4M13.6 8H16M2.3 2.3l1.7 1.7M12 12l1.7 1.7M13.7 2.3L12 4M4 12l-1.7 1.7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      </button>
+    </header>
+
+    <div class="body">
+      <aside class="rail rail-batch" id="railBatch" aria-label="Batch queue">
+        <div class="rail-head">
+          <h2 class="rail-title"><span class="faint"># </span>Queue</h2>
+          <span class="pill" id="queueCount">0</span>
+        </div>
+        <div class="queue-list" id="queueList" role="list"></div>
+        <div class="rail-foot" id="queueFoot">
+          <button type="button" class="btn tiny add-pair" id="addPairBtn" title="Add file pairs" aria-label="Add file pair">
+            <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M6 1.5v9M1.5 6h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            <span class="sans">Add pair</span>
+          </button>
+          <button type="button" class="iconbtn tiny" id="addFoldersBtn" title="Add a pair from two folders" aria-label="Add folder pair">
+            <svg viewBox="0 0 14 14" width="13" height="13" aria-hidden="true"><path d="M1.5 3.5A1.5 1.5 0 0 1 3 2h2.6l1.2 1.5H11a1.5 1.5 0 0 1 1.5 1.5v5A1.5 1.5 0 0 1 11 11.5H3A1.5 1.5 0 0 1 1.5 10Z" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+          </button>
+          <div class="folder-chooser" id="folderChooser" hidden>
+            <button type="button" class="btn tiny" id="pickFolderA">Folder A…</button>
+            <button type="button" class="btn tiny" id="pickFolderB">Folder B…</button>
+            <button type="button" class="btn tiny" id="addFolderPair" disabled>Add pair</button>
+          </div>
+          <input type="file" id="filePicker" multiple hidden>
+          <input type="file" id="folderPickerA" webkitdirectory hidden>
+          <input type="file" id="folderPickerB" webkitdirectory hidden>
+        </div>
+      </aside>
+
+      <main class="stage">
+        <div class="toolbar" id="toolbar">
+          <div class="seg" id="layoutSeg" role="group" aria-label="Layout">
+            <button type="button" class="seg-item is-active" data-layout="split" aria-pressed="true">Split</button>
+            <button type="button" class="seg-item" data-layout="unified" aria-pressed="false">Unified</button>
+          </div>
+          <div class="seg" id="compareSeg" role="group" aria-label="Compare mode" hidden>
+            <button type="button" class="seg-item is-active" data-compare="split" aria-pressed="true">Split</button>
+            <button type="button" class="seg-item" data-compare="fade" aria-pressed="false">Fade</button>
+            <button type="button" class="seg-item" data-compare="flicker" aria-pressed="false">Flicker</button>
+            <button type="button" class="seg-item" data-compare="slider" aria-pressed="false">Slider</button>
+            <button type="button" class="seg-item" data-compare="highlight" aria-pressed="false">Highlight</button>
+            <button type="button" class="seg-item" data-compare="details" aria-pressed="false">Details</button>
+          </div>
+          <div class="spring"></div>
+          <div class="tb-actions">
+            <button type="button" class="iconbtn" id="swapBtn" aria-label="Swap sides" title="Swap sides">
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2 5h10M9.5 2.5 12 5 9.5 7.5M14 11H4M6.5 8.5 4 11l2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button type="button" class="iconbtn" id="clearBtn" aria-label="Clear both sides" title="Clear both sides">
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3.5 4.5h9M6.5 4.5V3a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1.5M4.5 4.5l.7 8.2a1.5 1.5 0 0 0 1.5 1.3h2.6a1.5 1.5 0 0 0 1.5-1.3l.7-8.2M6.7 7v4.5M9.3 7v4.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <label class="switch-row inline" id="autoAlignRow" hidden>
+              <span class="switch-label">Auto-align</span>
+              <button type="button" class="switch" id="autoAlignSwitch" role="switch" aria-checked="false" aria-label="Auto-align"></button>
+            </label>
+            <button type="button" class="btn" id="detailsBtn" hidden>Details</button>
+            <button type="button" class="btn" id="downloadPatchBtn" hidden aria-label="Download patch file" title="Download .patch">
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 1.5v13M3.5 9l4.5 4.5 4.5-4.5M8 13.5V6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Patch
+            </button>
+            <button type="button" class="btn" id="copyMdBtn" hidden aria-label="Copy diff as markdown" title="Copy diff as markdown">Copy MD</button>
+            <button type="button" class="iconbtn" id="settingsBtn" aria-label="Open settings" title="Settings">
+              <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><circle cx="8" cy="8" r="2.2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.3v2M8 12.7v2M1.3 8h2M12.7 8h2M3.3 3.3l1.4 1.4M11.3 11.3l1.4 1.4M12.7 3.3l-1.4 1.4M4.7 11.3l-1.4 1.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+              <span class="sans">Settings</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="alignbar" id="alignbar" hidden>
+          <span class="microlabel">Nudge</span>
+          <div class="pad" aria-label="Nudge offset">
+            <span class="pad-spacer"></span>
+            <button type="button" class="padbtn" data-nudge="0,-10" aria-label="Nudge up 10px" title="Up (10px)">
+              <svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><path d="M2 6.5 5 3.5l3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <span class="pad-spacer"></span>
+            <button type="button" class="padbtn" data-nudge="-10,0" aria-label="Nudge left 10px" title="Left (10px)">
+              <svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><path d="M6.5 2 3.5 5l3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button type="button" class="padbtn" data-nudge="0,10" aria-label="Nudge down 10px" title="Down (10px)">
+              <svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><path d="M2 3.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button type="button" class="padbtn" data-nudge="10,0" aria-label="Nudge right 10px" title="Right (10px)">
+              <svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><path d="M3.5 2 6.5 5l-3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+          <span class="offset-readout mono dim" id="offsetReadout">x +0 px · y +0 px</span>
+          <div class="spring"></div>
+          <span class="faint align-hint">⇧ + arrows = 1 px</span>
+          <button type="button" class="btn tiny" id="resetAlignBtn">Reset alignment</button>
+        </div>
+
+        <!-- Empty state: dropzone + paste panes (text) / recent hint (image) -->
+        <section class="empty-state" id="emptyState">
+          <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Drop two files here or click to choose files">
+            <svg class="drop-ic" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M12 3v10M8.5 9.5 12 13l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <h3 class="drop-title" id="dropTitle">Drop two files to compare</h3>
+            <p class="drop-prose sans" id="dropProse">Or paste text below — .txt, .md and code files up to 250 MB each.</p>
+          </div>
+          <p class="recent-hint mono faint" id="recentHint" hidden></p>
+        </section>
+
+        <!-- Editors strip (text mode). Doubles as the empty-state paste panes. -->
+        <section class="editors" id="editors">
+          <div class="epane" id="epaneA" data-side="a">
+            <div class="ehead">
+              <span class="microlabel">Original</span>
+              <span class="ename mono" id="enameA"></span>
+              <span class="ehead-spring"></span>
+              <button type="button" class="iconbtn tiny" data-open="a" aria-label="Open file for original" title="Open file">
+                <svg viewBox="0 0 14 14" width="12" height="12" aria-hidden="true"><path d="M3 1.5h5L11 4.5v8H3Z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 1.5v3h3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+              </button>
+              <button type="button" class="iconbtn tiny" data-paste="a" aria-label="Paste into original" title="Paste">
+                <svg viewBox="0 0 14 14" width="12" height="12" aria-hidden="true"><rect x="4" y="3" width="6" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M5.5 3V2a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M6 6h2M6 8.5h2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+              </button>
+              <button type="button" class="iconbtn tiny" data-clear="a" aria-label="Clear original text" title="Clear">
+                <svg viewBox="0 0 14 14" width="12" height="12" aria-hidden="true"><path d="M3.5 3.5l7 7M10.5 3.5l-7 7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+              </button>
+              <button type="button" class="iconbtn tiny" data-copy="a" aria-label="Copy original text" title="Copy">
+                <svg viewBox="0 0 14 14" width="12" height="12" aria-hidden="true"><rect x="4.5" y="4.5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M9.5 2.5h-6a1 1 0 0 0-1 1v6" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+              </button>
+            </div>
+            <textarea class="etext" id="textA" spellcheck="false" autocomplete="off" wrap="off" aria-label="Original text" placeholder="Type or paste original text..."></textarea>
+          </div>
+
+          <div class="emid">
+            <button type="button" class="btn compare-btn" id="compareBtn" aria-keyshortcuts="Control+Enter Meta+Enter">Compare</button>
+            <span class="emid-spring"></span>
+          </div>
+
+          <div class="epane" id="epaneB" data-side="b">
+            <div class="ehead">
+              <span class="microlabel">Changed</span>
+              <span class="ename mono" id="enameB"></span>
+              <span class="ehead-spring"></span>
+              <button type="button" class="iconbtn tiny" data-open="b" aria-label="Open file for changed" title="Open file">
+                <svg viewBox="0 0 14 14" width="12" height="12" aria-hidden="true"><path d="M3 1.5h5L11 4.5v8H3Z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 1.5v3h3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+              </button>
+              <button type="button" class="iconbtn tiny" data-paste="b" aria-label="Paste into changed" title="Paste">
+                <svg viewBox="0 0 14 14" width="12" height="12" aria-hidden="true"><rect x="4" y="3" width="6" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M5.5 3V2a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M6 6h2M6 8.5h2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+              </button>
+              <button type="button" class="iconbtn tiny" data-clear="b" aria-label="Clear changed text" title="Clear">
+                <svg viewBox="0 0 14 14" width="12" height="12" aria-hidden="true"><path d="M3.5 3.5l7 7M10.5 3.5l-7 7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+              </button>
+              <button type="button" class="iconbtn tiny" data-copy="b" aria-label="Copy changed text" title="Copy">
+                <svg viewBox="0 0 14 14" width="12" height="12" aria-hidden="true"><rect x="4.5" y="4.5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M9.5 2.5h-6a1 1 0 0 0-1 1v6" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+              </button>
+            </div>
+            <textarea class="etext" id="textB" spellcheck="false" autocomplete="off" wrap="off" aria-label="Changed text" placeholder="Type or paste changed text..."></textarea>
+          </div>
+        </section>
+
+        <!-- Text diff area -->
+        <section class="diffarea" id="diffarea">
+          <div class="diffwrap" id="diffwrap" tabindex="0" aria-label="Diff output">
+            <div class="vlist" id="vlist"></div>
+          </div>
+        </section>
+
+        <!-- Image compare area -->
+        <section class="imgarea" id="imgarea" hidden>
+          <div class="imgempty" id="imgempty">
+            <div class="imgstage-ph" id="imgStagePh" aria-hidden="true">
+              <i class="skel-bar skel-bar-1"></i>
+              <i class="skel-bar skel-bar-2"></i>
+              <i class="skel-bar skel-bar-3"></i>
+            </div>
+          </div>
+          <div class="imgstage" id="imgstage" hidden>
+            <div class="imgbox" id="imgbox">
+              <div class="zoompan" id="zoompan">
+                <div class="cvstack" id="cvstack"></div>
+                <div class="boxes" id="boxes"></div>
+                <button type="button" class="divhandle" id="divhandle" role="slider" aria-label="Comparison divider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" hidden>
+                  <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M3 3 1 6l2 3M9 3l2 3-2 3M1 6h10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="imgcontrols" id="imgcontrols"></div>
+          </div>
+          <div class="details-cards" id="detailsCards" hidden></div>
+        </section>
+
+        <footer class="statsbar" id="statsbar">
+          <div class="stats-l mono" id="statsL"></div>
+          <div class="stats-r mono" id="statsR"></div>
+        </footer>
+      </main>
+
+      <aside class="rail rail-side" id="railSide" aria-label="Settings">
+        <div class="rail-head side-head" id="sideHead">
+          <h2 class="rail-title"><span class="faint"># </span>Settings</h2>
+          <button type="button" class="iconbtn tiny" id="collapseSide" aria-label="Collapse settings" title="Collapse">
+            <svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><path d="M6.5 2 3.5 5l3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+        <div class="rail-collapsed" id="railCollapsed" hidden>
+          <button type="button" class="iconbtn" id="reopenSide" aria-label="Open settings" title="Settings">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="2.2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.3v2M8 12.7v2M1.3 8h2M12.7 8h2M3.3 3.3l1.4 1.4M11.3 11.3l1.4 1.4M12.7 3.3l-1.4 1.4M4.7 11.3l-1.4 1.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="settings-view" id="settingsView"></div>
+        <div class="details-view" id="detailsView" hidden></div>
+      </aside>
+    </div>
+  </div>
+</body>
+</html>

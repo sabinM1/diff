@@ -1,0 +1,26 @@
+{
+  "name": "diffbench",
+  "version": "1.0.0",
+  "description": "Diffbench — a fully client-side diff checker for text and images. Zero backend, zero runtime dependencies, deployable to any static host.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "author": "Diffbench contributors",
+  "keywords": [
+    "diff",
+    "text-diff",
+    "image-diff",
+    "client-side",
+    "web-workers",
+    "static-site"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "node dev-server.mjs",
+    "build": "node build.mjs",
+    "serve": "node dev-server.mjs dist",
+    "test": "node tests/diff.test.mjs"
+  }
+}
